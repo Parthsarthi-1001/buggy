@@ -189,8 +189,8 @@ class ObjectRecognizer(Node):
 			QOS_PROFILE_DEFAULT)
 
 		# Absolute path to resources
-		resource_path_coco = "/home/psg/cognipilot/cranium/src/NXP_AIM_INDIA_2025/resource/data.yaml"
-		resource_path_yolo = "/home/psg/cognipilot/cranium/src/NXP_AIM_INDIA_2025/resource/best-fp16.tflite"
+		resource_path_coco = "/home/user/cognipilot/cranium/src/NXP_AIM_INDIA_2025/resource/data.yaml"
+		resource_path_yolo = "/home/user/cognipilot/cranium/src/NXP_AIM_INDIA_2025/resource/best-fp16.tflite"
 
 
 		with open(resource_path_coco) as f:
