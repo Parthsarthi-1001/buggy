@@ -429,6 +429,7 @@ class WarehouseExplore(Node):
                             qr_coords(cx, cy, angle, dist, n-0.05)
                     c1,c2= qr_coords(cx, cy, angle, dist, n)
                     shelves.append(shelf((cx,height-cy),(c1,height-c2),(o1,height-o2),(angle*np.pi/180),(ortho*np.pi/180)))
+                    self.logger.info(f"found shelves jfhvuhdflghjlfbhljdflkgjljfgljlbgj;kgnj: {len(shelves)}")
 
     def reach_shelves(self, shelf_index, map_info, map_array, img):
         # self.logger.info(f"shelf_index: {shelf_index}")
@@ -658,7 +659,7 @@ class WarehouseExplore(Node):
                 dirn = np.arctan2(dy, dx) + self.robot_initial_angle
                 if dirn < 0:
                     dirn += 2 * np.pi
-                # self.logger.info(f"real --> {dirn*180/np.pi} qr_angle--> {self.qr_angle}")
+                self.logger.info(f"real --> {dirn*180/np.pi} qr_angle--> {self.qr_angle}")
                 qr_angle_rad = np.deg2rad(self.qr_angle)  # Convert to radians
                 error_rad = np.deg2rad(error)
 
@@ -722,6 +723,7 @@ class WarehouseExplore(Node):
             
             
             shelf_indices = self.find_shelves(img, th, map_info)
+            # self.logger.info(f"shelf_indices: {len(shelf_indices)}")
 
             if len(shelf_indices) > 0:
                 # 1. Select the best shelf (e.g., the closest)
