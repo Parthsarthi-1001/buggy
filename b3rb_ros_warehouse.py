@@ -534,7 +534,7 @@ class WarehouseExplore(Node):
 
         # self.logger.info(f"fx_world: {fx_world}, fy_world: {fy_world}")
         goal = self.create_goal_from_map_coord(fx,fy,map_info,angle) 
-        self.send_goal_from_world_pose(goal)
+        # self.send_goal_from_world_pose(goal)
         if self.goal_status == 'accepted':
             if not self.qr_done:
                 self.qr_done = True
@@ -590,7 +590,7 @@ class WarehouseExplore(Node):
                                 
                         self.logger.info("unexpored region ")
                         goal = self.create_goal_from_map_coord(x, y, map_info)
-                        self.send_goal_from_world_pose(goal)                        
+                        # self.send_goal_from_world_pose(goal)                        
                         break
 
                     elif img[self.node_y][self.node_x] == 0 :# explored no obstacles
@@ -610,7 +610,7 @@ class WarehouseExplore(Node):
                             self.node_x = int(self.node_x)
                             self.node_y = int(self.node_y)
                         goal = self.create_goal_from_map_coord(self.node_x,self.node_y, map_info)
-                        self.send_goal_from_world_pose(goal)
+                        # self.send_goal_from_world_pose(goal)
                         break
                         
                     else:
@@ -623,7 +623,7 @@ class WarehouseExplore(Node):
                         self.node_x+= np.cos(np.deg2rad(self.qr_angle))*dist*dirn
                         self.node_y+= np.sin(np.deg2rad(self.qr_angle))*dist*dirn
                         goal = self.create_goal_from_map_coord(self.node_x, self.node_y, map_info)
-                        self.send_goal_from_world_pose(goal)
+                        # self.send_goal_from_world_pose(goal)
                         break
                     else :
                         self.node_x-= np.cos(np.deg2rad(self.qr_angle))*dist*dirn
@@ -895,7 +895,7 @@ class WarehouseExplore(Node):
             msg = Joy()
             msg.buttons = [0, 1, 0, 0, 0, 0, 0, 1]
             msg.axes = [0.0, 0.0, 0.0, 0.0]
-            self.publisher_joy.publish(msg)
+            # self.publisher_joy.publish(msg)
 
     def behavior_tree_log_callback(self, message):
         """Alternative method for checking goal status.
