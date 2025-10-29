@@ -1,0 +1,19 @@
+names:
+- banana
+- car
+- clock
+- cup
+- horse
+- potted plant
+- teddy bear
+- zebra
+nc: 8
+roboflow:
+  license: CC BY 4.0
+  project: object-2.0
+  url: https://universe.roboflow.com/psg-ucxyu/object-2.0/dataset/3
+  version: 3
+  workspace: psg-ucxyu
+test: ../test/images
+train: Object-2.0-3/train/images
+val: Object-2.0-3/valid/images
