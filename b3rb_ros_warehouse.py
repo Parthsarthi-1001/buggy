@@ -35,7 +35,6 @@ from sklearn.decomposition import PCA
 
 import tkinter as tk
 from tkinter import ttk
-from enum import Enum, auto
 
 QOS_PROFILE_DEFAULT = 10
 SERVER_WAIT_TIMEOUT_SEC = 5.0
@@ -108,17 +107,6 @@ class WarehouseExplore(Node):
         Returns:
             None
     """
-    class RobotState(Enum):
-        INITIALIZING = auto()
-        FINDING_SHELVES = auto()
-        DECIDE_NEXT_TARGET = auto()
-        EXPLORING = auto()
-        NAVIGATING_TO_QR = auto()
-        SCANNING_QR = auto()
-        NAVIGATING_TO_OBJECTS = auto()
-        SCANNING_OBJECTS = auto()
-        TASK_COMPLETE = auto()
-
     def __init__(self):
         super().__init__('warehouse_explore')
 
@@ -223,7 +211,7 @@ class WarehouseExplore(Node):
         self.max_step_dist_world_meters = 7.0
         self.min_step_dist_world_meters = 4.0
         self.full_map_explored_count = 0
-
+        self.dirn=1
         # --- QR Code Data ---
         self.qr_code_str = "Empty"
         if PROGRESS_TABLE_GUI:
@@ -242,26 +230,25 @@ class WarehouseExplore(Node):
         self.shelf_no = 0.5
         self.prev_no_qr = 0
         self.next_shelf = False
+        # self.next_count = 0
         self.shelf_table_no = 0
+        # self.forcefull_switch=False
+        # self.increment_mark=True
+        # self.increment_count=0
         self.qr_angle = 0
+        self.explore_toggle = True
         self.qr_array = ['0' for _ in range(self.shelf_count)]
         self.obj_counter = 0
         self.current_count = []
-        # self.stop_count=0
-        # self.distant_pre_pos=[0,0]
+        self.prev_pos=[0,0]
+        self.stop_count=0
+        self.distant_pre_pos=[0,0]
         self.miss_check = False
 
         self.halt = False
         self.prev_sit = [0.0, 0.0]
         self.halt_counter = 0
         self.last_moved_time = self.get_clock().now().nanoseconds
-
-        self.robot_state = self.RobotState.INITIALIZING
-        self.map_received = False
-        self.shelves_found = False
-        self.shelves = [] # Store shelves in the class instance
-        self.node_initialized = False
-        self.main_loop_timer = self.create_timer(2.0, self.main_logic_loop)
         self.robot_initial_angle = None
 
 
@@ -302,134 +289,6 @@ class WarehouseExplore(Node):
             map_info.width / 2, map_info.height / 2, map_info
         )
 
-    def get_shelves(self, img, th, height, width):
-        global shelves
-        shelves=[]
-        # img = np.array(data).reshape((height, width)).astype(np.uint8)
-        # img[(img != 0)&(img != -1)] = 255
-        # img[img == -1] = 127
-        # _, th = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
-        # th=cv2.flip(th,0)
-        # img=cv2.flip(img,0)
-        ct, _ = cv2.findContours(th, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-
-        for i, cnt in enumerate(ct):
-            area = cv2.contourArea(cnt)
-
-            if area < 100 or area>10000:  
-                continue
-            rect = cv2.minAreaRect(cnt)
-            box = cv2.boxPoints(rect)  
-            box = np.intp(box) 
-            dim = np.sort(rect[1])
-
-            
-            if   0.5 < dim[0]/dim[1] < 0.8 and area / (dim[0]*dim[1]) > 0.8:#
-            
-                if  (np.sqrt((box[0][0]-box[1][0])**2+(box[0][1]-box[1][1])**2)>np.sqrt((box[1][0]-box[2][0])**2+(box[1][1]-box[2][1])**2)):
-                    if (box[1][0]-box[2][0])!= 0:
-                        slope= (box[1][1]-box[2][1])/(box[1][0]-box[2][0])
-                        angle = np.arctan(slope) 
-                    else:
-                        angle=np.pi/2
-
-                    dist=np.sqrt((box[0][0]-box[1][0])**2+(box[0][1]-box[1][1])**2)
-                
-                else :
-                    if (box[0][0]-box[1][0])!=0:
-                        slope= (box[0][1]-box[1][1])/(box[0][0]-box[1][0])
-                        angle = np.arctan(slope) 
-                        
-                    else :
-                        angle=np.pi/2
-                    dist=np.sqrt((box[1][0]-box[2][0])**2+(box[1][1]-box[2][1])**2)
-                ortho=angle
-
-                # angle = np.arctan(slope) 
-                # print("--->",slope)
-                # cv2.drawContours(output,[box],0,(0,0,255),2)
-                # print(rect[1])
-                M = cv2.moments(cnt)
-                if M["m00"] != 0:
-                    cx = int(M["m10"] / M["m00"])
-                    cy = int(M["m01"] / M["m00"])
-                    n=1
-                    m=1.5
-                    def shelf_coords(cx, cy, angle, dist, m):
-                        x1=int(cx+dist*m*np.cos(angle))
-                        y1=int(cy+dist*m*np.sin(angle))
-                        x2= int(cx-dist*m*np.cos(angle))
-                        y2= int(cy-dist*m*np.sin(angle))
-                        C1=x1>0 and  x1<img.shape[1] and y1>0 and y1<img.shape[0] and  th[y1][x1]==0
-                        C2=x2>0 and x2<img.shape[1] and y2>0 and y2<img.shape[0] and th[y2][x2]==0
-                        dist1=euclidean(self.buggy_center,(x1,y1))
-                        dist2=euclidean(self.buggy_center,(x2,y2))
-                        if C1 and C2:
-                            if dist1<dist2:
-                                o1,o2=x1,y1
-                            else:
-                                o1,o2=x2,y2
-                            return o1,o2
-                        elif C1 :
-
-                            o1,o2=x1,y1
-                            return o1,o2
-                        elif C2 :
-                            o1,o2=x2,y2
-                            return o1,o2
-                        else:
-                            if m<1:
-                                self.lofgger.info(f"extream conds met for shelf {cx,cy,angle,dist,m}")  
-                                return
-                            
-                            shelf_coords(cx, cy, angle, dist, m-0.1)
-                    o1,o2= shelf_coords(cx, cy, angle, dist, m)
-                    self.logger.info(f"shelf found at: {o1,o2} with angle {angle*180/np.pi}")
-                    
-                    
-
-                    if angle!=np.pi/2:
-                        slope=-1/slope
-                        angle = np.arctan(slope)
-                    else:
-                        angle= 0
-                    
-
-                    # if int(cx+dist*n*np.cos(angle))<0 or int(cx+dist*n*np.cos(angle))>img.shape[1] or int(cy+dist*n*np.sin(angle))<0 or int(cy+dist*n*np.sin(angle))>img.shape[0] or  th[int(cy+dist*n*np.sin(angle))][int(cx+dist*n*np.cos(angle))]!=1 :
-                    #     c1,c2=int(cx-dist*n*np.cos(angle)), int(cy-dist*n*np.sin(angle))
-                    # else:
-                    #     c1,c2=int(cx+dist*n*np.cos(angle)), int(cy+dist*n*np.sin(angle))	
-                    def qr_coords(cx, cy, angle, dist, n):
-                        x1=int(cx+dist*n*np.cos(angle))
-                        y1=int(cy+dist*n*np.sin(angle))
-                        x2= int(cx-dist*n*np.cos(angle))
-                        y2= int(cy-dist*n*np.sin(angle))
-                        C1=x1>0 and  x1<img.shape[1] and y1>0 and y1<img.shape[0] and  th[y1][x1]==0
-                        C2=x2>0 and x2<img.shape[1] and y2>0 and y2<img.shape[0] and th[y2][x2]==0
-                        dist1=euclidean(self.buggy_center,(x1,y1))
-                        dist2=euclidean(self.buggy_center,(x2,y2))
-                        if C1 and C2:
-                            if dist1<dist2:
-                                c1,c2=x1,y1
-                            else:
-                                c1,c2=x2,y2
-                            return c1,c2
-                        elif C1 :
-
-                            c1,c2=x1,y1
-                            return c1,c2
-                        elif C2 :
-                            c1,c2=x2,y2
-                            return c1,c2
-                        else:
-                            if n<0.8:
-                                # self.logger.info(f"extream conds met for qr {cx,cy,angle,dist,n}")  
-                                return
-                            
-                            qr_coords(cx, cy, angle, dist, n-0.05)
-                    c1,c2= qr_coords(cx, cy, angle, dist, n)
-                    shelves.append(shelf((cx,height-cy),(c1,height-c2),(o1,height-o2),(angle*np.pi/180),(ortho*np.pi/180)))
-                    self.logger.info(f"found shelves jfhvuhdflghjlfbhljdflkgjljfgljlbgj;kgnj: {len(shelves)}")
 
     def reach_shelves(self, shelf_index, map_info, map_array, img):
         # self.logger.info(f"shelf_index: {shelf_index}")
@@ -535,7 +394,7 @@ class WarehouseExplore(Node):
 
         # self.logger.info(f"fx_world: {fx_world}, fy_world: {fy_world}")
         goal = self.create_goal_from_map_coord(fx,fy,map_info,angle) 
-        # self.send_goal_from_world_pose(goal)
+        self.send_goal_from_world_pose(goal)
         if self.goal_status == 'accepted':
             if not self.qr_done:
                 self.qr_done = True
@@ -552,97 +411,291 @@ class WarehouseExplore(Node):
         Returns:
             None    
         """
-        frontiers = self.get_frontiers_for_space_exploration(map_array)
+        frontiers, gain = self.get_frontiers_for_space_exploration(map_array)
         height,width=np.shape(img)
         img[img==255]=1
         img[img==127]=-1
         
-        self.logger.info("new_thing")
+
         if len(frontiers)>5:
-            self.logger.info("nice_thing")
-            # closest_frontier = None
-            # closest = None
-            # max_optimal_curr = float(0)
+            closest_frontier = None
+            closest = None
+            max_optimal_curr = float(0)
             dist=20
             
-            # output = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+            
             self.logger.info(f"checking point at :{self.node_x,self.node_y}")
-            dirn=1
+            
+            dirn_toggle=True
             while 1:
                 if not self.goal_completed:
                     return
-                self.node_x+= np.cos(np.deg2rad(self.qr_angle))*dist*dirn
-                self.node_y+= np.sin(np.deg2rad(self.qr_angle))*dist*dirn
+                self.node_x+= np.cos(np.deg2rad(self.qr_angle))*dist*self.dirn
+                self.node_y+= np.sin(np.deg2rad(self.qr_angle))*dist*self.dirn
+                self.logger.info(f"checking point at :{self.node_x,self.node_y}")
                 self.node_x = int(self.node_x)
                 self.node_y = int(self.node_y)
-                self.logger.info(f"checking point at :{self.node_x, self.node_y}")
-                self.logger.info(f"types of element in img: {type(img)}, ")
-
+                
                 if (0<self.node_x<width and 0<self.node_y<height):
-                    self.logger.info("good point found ")
+                    self.logger.info(f"checking point at :{self.node_x,self.node_y},val of point is  {img[self.node_y][self.node_x] } wit qr agle {self.qr_angle}")#
+                    self.logger.info(" node point within bounds") 
                     if img[self.node_y][self.node_x]==-1  : #unexplored
-                        # self.logger.info("unexpored region")
                         mind=10000
                         x,y=0,0
                         for fy, fx in frontiers:
                             if euclidean((self.node_x,self.node_y),(fx,fy))<mind:
                                 mind= euclidean((self.node_x,self.node_y),(fx,fy))
-                                x, y = fx,fy    
+                                x,y=fx,fy
+                        
                                 
-                        self.logger.info("unexpored region ")
+                        self.logger.info("unexpored  region found, going to nearest frontier ")
+
+
                         goal = self.create_goal_from_map_coord(x, y, map_info)
-                        # self.send_goal_from_world_pose(goal)                        
+                        self.send_goal_from_world_pose(goal)
+
+                        
                         break
+                    elif  img[self.node_y][self.node_x]==1:
+                        self.logger.info("obstacle region found")
+                        k=0
+                        brk=False
+                        while not brk:
+                            k+=1
+                            if k>200:
+                                brk=True
+                                break
+                            for i in range(-k,k):
+                                for j in range(-k,k):
+                                    if img[self.node_y+j][self.node_x+i]==0:
+                                        self.logger.info("explored point found near obstacle ,passing it as goal")
+
+                                        goal= self.create_goal_from_map_coord(self.node_x+i,self.node_y+j,map_info)
+                                        self.send_goal_from_world_pose(goal)
+                                        brk=True
+                                        break
+                                if brk:
+                                    
+                                    break
+
+                            
+                        if brk == False:
+                            mind=10000
+                            x,y=0,0
+                            for fy, fx in frontiers:
+                                if euclidean((self.node_x,self.node_y),(fx,fy))<mind:
+                                    mind= euclidean((self.node_x,self.node_y),(fx,fy))
+                                    x,y=fx,fy
+                            self.logger.info("no explored point found near obstacle ,passing nearest forienter as a goal")
+                            goal = self.create_goal_from_map_coord(x, y, map_info)
+                            self.send_goal_from_world_pose(goal)
+
+
 
                     elif img[self.node_y][self.node_x] == 0 :# explored no obstacles
 
                         self.logger.info(f"free region {img[self.node_y][self.node_x]}")
-                        # goal = self.create_goal_from_map_coord(self.node_x,self.node_y, map_info)
-                        # self.send_goal_from_world_pose(goal)
 
-                        self.logger.info("going in the dirn of next shelf on explored paimg")
-                    elif img[self.node_y][self.node_x] == 1: #obstacle
-                        self.logger.info("obstacle region ")
-                        while (img[self.node_y][self.node_x]==1):
-                            # self.logger.info(img[self.node_y][self.node_x])
-                            self.logger.info(f"new node: {self.node_x,self.node_y}")
-                            self.node_x-= np.cos(np.deg2rad(self.qr_angle))*dist/4*dirn
-                            self.node_y-= np.sin(np.deg2rad(self.qr_angle))*dist/4*dirn
-                            self.node_x = int(self.node_x)
-                            self.node_y = int(self.node_y)
-                        goal = self.create_goal_from_map_coord(self.node_x,self.node_y, map_info)
-                        # self.send_goal_from_world_pose(goal)
-                        break
+                        
+
                         
                     else:
                         self.logger.info(f"unknown region {img[self.node_y][self.node_x]}")
 
                 else:
-                    if dist<3:
+                    if dist<3 :
+
                         self.logger.info("no unexplored point found in the dirn of next shelf,changing dirn ")
-                        dirn*=-1
-                        self.node_x+= np.cos(np.deg2rad(self.qr_angle))*dist*dirn
-                        self.node_y+= np.sin(np.deg2rad(self.qr_angle))*dist*dirn
+
+                        
+                        
+
+                        self.node_x-= np.cos(np.deg2rad(self.qr_angle))*dist*self.dirn
+                        self.node_y-= np.sin(np.deg2rad(self.qr_angle))*dist*self.dirn
+                        self.logger.info(f"checking point at:{self.node_x,self.node_y} with changing direction ")
+                        self.dirn*=-1
+            
                         goal = self.create_goal_from_map_coord(self.node_x, self.node_y, map_info)
-                        # self.send_goal_from_world_pose(goal)
+                        self.send_goal_from_world_pose(goal)
+
                         break
                     else :
-                        self.node_x-= np.cos(np.deg2rad(self.qr_angle))*dist*dirn
-                        self.node_y-= np.sin(np.deg2rad(self.qr_angle))*dist*dirn
+                        self.node_x-= np.cos(np.deg2rad(self.qr_angle))*dist*self.dirn
+                        self.node_y-= np.sin(np.deg2rad(self.qr_angle))*dist*self.dirn
+                        self.logger.info(f"checking point at:{self.node_x,self.node_y} while reduding dist")
                         self.logger.info("reducing dist")
                         dist-=2
 
+    def shelf_coords(self,th,cx, cy, angle, dist, m):
+        x1=int(cx+dist*m*np.cos(angle))
+        y1=int(cy+dist*m*np.sin(angle))
+        x2= int(cx-dist*m*np.cos(angle))
+        y2= int(cy-dist*m*np.sin(angle))
+        C1=x1>0 and  x1<th.shape[1] and y1>0 and y1<th.shape[0] and  th[y1][x1]==0
+        C2=x2>0 and x2<th.shape[1] and y2>0 and y2<th.shape[0] and th[y2][x2]==0
+        self.logger.info(f"C1,C2: {C1,C2}")
+        dist1=euclidean(self.buggy_center,(x1,y1))
+        dist2=euclidean(self.buggy_center,(x2,y2))
+        if C1 and C2:
+            if dist1<dist2:
+                o1,o2=x1,y1
+            else:
+                o1,o2=x2,y2
+            return o1,o2
+        elif C1 :
 
-    def find_shelves(self, img, th, map_info):
-        # self.full_map_explored_count += 1
-        height, width = map_info.height, map_info.width
-        self.get_shelves(img, th, height, width)
+            o1,o2=x1,y1
+            return o1,o2
+        elif C2 :
+            o1,o2=x2,y2
+            return o1,o2
+        else:
+            if m<0.7:
+                self.logger.info(f"extream conds met for shelf {cx,cy,angle,dist,m}")  
+                return 
+            
+            self.shelf_coords(th,cx, cy, angle, dist, m-0.1)
+    def qr_coords(self,th,cx, cy, angle, dist, n):
+        x1=int(cx+dist*n*np.cos(angle))
+        y1=int(cy+dist*n*np.sin(angle))
+        x2= int(cx-dist*n*np.cos(angle))
+        y2= int(cy-dist*n*np.sin(angle))
+        C1=x1>0 and  x1<th.shape[1] and y1>0 and y1<th.shape[0] and  th[y1][x1]==0
+        C2=x2>0 and x2<th.shape[1] and y2>0 and y2<th.shape[0] and th[y2][x2]==0
+        self.logger.info(f"C1,C2: {C1,C2}")
+        dist1=euclidean(self.buggy_center,(x1,y1))
+        dist2=euclidean(self.buggy_center,(x2,y2))
+        if C1 and C2:
+            if dist1<dist2:
+                c1,c2=x1,y1
+            else:
+                c1,c2=x2,y2
+            return c1,c2
+        elif C1 :
 
+            c1,c2=x1,y1
+            return c1,c2
+        elif C2 :
+            c1,c2=x2,y2
+            return c1,c2
+        else:
+            if n<0.8:
+                # self.logger.info(f"extream conds met for qr {cx,cy,angle,dist,n}")  
+                return 
+            
+            self.qr_coords(th,cx, cy, angle, dist, n-0.05)
+    def get_shelves(self, img,th, height, width):
+        global shelves
+        shelves=[]
+        self.height=height
+        self.width=width
+        # img = np.array(data).reshape((height, width)).astype(np.uint8)
+        # # img2=img.copy()
+        # img[(img != 0)&(img != -1)] = 255
+        # img[img == -1] = 127
+        # # img[img==0]=0
+        # _, th = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
+        # th=cv2.flip(th,0)
+        # img=cv2.flip(img,0)
+        self.logger.info("shelf detection started")
+        
+        ct, _ = cv2.findContours(th, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        # self.logger.info(f"total contours found: {len(ct)}")
+
+
+        for i, cnt in enumerate(ct):
+            area = cv2.contourArea(cnt)
+            # self.logger.info(f"contour {i} with area {area}")
+
+            if area < 100 or area>10000:  
+                continue
+            perimeter = cv2.arcLength(cnt, True)
+            epsilon = 0.04 * perimeter
+            approx = cv2.approxPolyDP(cnt, epsilon, True)
+            vertices = len(approx)
+            rect = cv2.minAreaRect(cnt)
+            box = cv2.boxPoints(rect)  
+            box = np.intp(box) 
+            dim = np.sort(rect[1])
+            
+            # if not rect[1][0]>10000:
+            #     cv2.drawContours(output, [cnt], -1, (0, 255, 0), 2)
+
+            # print((cx,cy))
+            
+            if   0.5 < dim[0]/dim[1] < 0.8 and area / (dim[0]*dim[1]) > 0.8:#
+            
+                if  (np.sqrt((box[0][0]-box[1][0])**2+(box[0][1]-box[1][1])**2)>np.sqrt((box[1][0]-box[2][0])**2+(box[1][1]-box[2][1])**2)):
+                    if (box[1][0]-box[2][0])!= 0:
+                        slope= (box[1][1]-box[2][1])/(box[1][0]-box[2][0])
+                        angle = np.arctan(slope) 
+                    else:
+                        angle=np.pi/2
+
+                    dist=np.sqrt((box[0][0]-box[1][0])**2+(box[0][1]-box[1][1])**2)
+                
+                else :
+                    if (box[0][0]-box[1][0])!=0:
+                        slope= (box[0][1]-box[1][1])/(box[0][0]-box[1][0])
+                        angle = np.arctan(slope) 
+                        
+                    else :
+                        angle=np.pi/2
+                    dist=np.sqrt((box[1][0]-box[2][0])**2+(box[1][1]-box[2][1])**2)
+                ortho=angle
+
+                # angle = np.arctan(slope) 
+                # print("--->",slope)
+                # cv2.drawContours(output,[box],0,(0,0,255),2)
+                # print(rect[1])
+                M = cv2.moments(cnt)
+                self.logger.info(f"shelf candidate at area {area} with dim {dim} and angle {angle*180/np.pi}")
+                if M["m00"] != 0:
+                    cx = int(M["m10"] / M["m00"])
+                    cy = int(M["m01"] / M["m00"])
+                    n=1
+                    m=1.5
+                    
+
+                    o1,o2= self.shelf_coords(th,cx, cy, angle, dist, m)
+                    self.logger.info(f"shelf found at: {o1,o2} with angle {angle*180/np.pi}")
+                    
+                    
+
+                    if angle!=np.pi/2:
+                        slope=-1/slope
+                        angle = np.arctan(slope)
+                    else:
+                        angle= 0
+                    
+
+                    # if int(cx+dist*n*np.cos(angle))<0 or int(cx+dist*n*np.cos(angle))>img.shape[1] or int(cy+dist*n*np.sin(angle))<0 or int(cy+dist*n*np.sin(angle))>img.shape[0] or  th[int(cy+dist*n*np.sin(angle))][int(cx+dist*n*np.cos(angle))]!=1 :
+                    #     c1,c2=int(cx-dist*n*np.cos(angle)), int(cy-dist*n*np.sin(angle))
+                    # else:
+                    #     c1,c2=int(cx+dist*n*np.cos(angle)), int(cy+dist*n*np.sin(angle))	
+                    
+                    c1,c2= self.qr_coords(th,cx, cy, angle, dist, n)
+
+                    shelves.append(shelf((cx,height-cy),(c1,height-c2),(o1,height-o2),(angle*np.pi/180),(ortho*np.pi/180)))
+                    self.logger.info(f"complete shelf added {len(shelves)}")
+                    continue
+            self.logger.info("perfect shape not found")
+
+
+    def find_shelves(self, img,th, height, width, map_info):
+        self.full_map_explored_count += 1
+        self.logger.info(f"finf_shelves; count = {self.full_map_explored_count}")
+        # if self.flag == 0:
+        self.get_shelves(img,th, height, width)
         if self.coms==None:
+            
             self.coms = "done"
-            self.qr_angle = self.initial_angle
+            self.qr_angle = self.initial_angle + math.degrees(self.robot_initial_angle)
             self.node_x, self.node_y = self.get_map_coord_from_world_coord(0,0, map_info)
 
+            # self.logger.info(f"points-->: {len(shelves)}")
+
+        # self.logger.info(f"Array-->: {[x.qr_coords for x in shelves]}")
         
         error = 10 #in degrees
 
@@ -656,7 +709,7 @@ class WarehouseExplore(Node):
                 dx = (shelf.com[0] - self.current_com_x)
                 dy = (shelf.com[1] - self.current_com_y)
                 # self.logger.info(f"dx: {dx}, dy: {dy}")
-                dirn = np.arctan2(dy, dx) + self.robot_initial_angle
+                dirn = np.arctan2(dy, dx)
                 if dirn < 0:
                     dirn += 2 * np.pi
                 self.logger.info(f"real --> {dirn*180/np.pi} qr_angle--> {self.qr_angle}")
@@ -674,98 +727,7 @@ class WarehouseExplore(Node):
             counter+=1
         
         return shelf_index
-    
-    def main_logic_loop(self): #main logic call periodically to check the state and do the required task
 
-    # Don't do anything if a goal is in progress or we don't have a map
-        if not self.goal_completed or not self.map_received:
-            return
-        
-        map_info = self.global_map_curr.info
-        map_array = np.array(self.global_map_curr.data).reshape((
-                self.global_map_curr.info.height, self.global_map_curr.info.width
-            ))
-        height, width = map_info.height, map_info.width  
-
-        img = np.array(self.global_map_curr.data).reshape((height, width)).astype(np.uint8)
-        img[(img != 0)&(img != -1)] = 255
-        img[img == -1] = 127
-        _, th = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
-        th=cv2.flip(th,0)
-        img=cv2.flip(img,0)
-
-        # if not self.node_initialized:
-        #     self.node_x, self.node_y = self.get_map_coord_from_world_coord(0, 0, map_info)
-        #     self.node_initialized = True
-
-        # --- STATE: FINDING_SHELVES ---
-        # This state runs only once at the beginning.
-
-        if self.robot_state == self.RobotState.FINDING_SHELVES:
-            self.logger.info("State: FINDING_SHELVES - Performing initial scan for shelves...")
-            
-            self.find_shelves(img, th, map_info)
-            
-            if len(self.shelves) > 0: #if atleat one shelf found
-                self.shelves_found = True
-                self.logger.info(f"Found {len(self.shelves)} potential shelves. Proceeding to target selection.")
-                self.robot_state = self.RobotState.DECIDE_NEXT_TARGET # --> Transition to deciding
-            else:
-                # If no shelves found at all, we must explore
-                self.logger.warn("No shelves found on initial scan. Starting exploration.")
-                self.robot_state = self.RobotState.EXPLORING
-
-        # --- STATE: DECIDE_NEXT_TARGET ---
-        # This is now the main "thinking" state.
-        # Inside main_logic_loop
-        elif self.robot_state == self.RobotState.DECIDE_NEXT_TARGET:
-            self.logger.info("State: DECIDE_NEXT_TARGET - Selecting the next shelf to visit.")
-            
-            
-            shelf_indices = self.find_shelves(img, th, map_info)
-            # self.logger.info(f"shelf_indices: {len(shelf_indices)}")
-
-            if len(shelf_indices) > 0:
-                # 1. Select the best shelf (e.g., the closest)
-                # This logic is from the start of your old reach_shelves function
-                self.reach_shelves(shelf_indices, map_info, map_array, img)
-                # min_dist = float('inf')
-                # best_shelf_index = -1
-                # for index in shelf_indices:
-                #     self.logger.info(f"index: {index}")
-                #     qr_world_coords = self.get_world_coord_from_map_coord(
-                #         self.shelves[index].qr_coords[0], self.shelves[index].qr_coords[1], map_info
-                #     )
-                #     dist = euclidean(qr_world_coords, self.buggy_center)
-                #     if dist < min_dist:
-                #         min_dist = dist
-                #         best_shelf_index = index
-                
-                # target_shelf = self.shelves[best_shelf_index]
-
-                # 2. Decide WHERE to go on that shelf
-                # if not self.qr_done:
-                #     # If we haven't scanned the QR yet, go to the QR point
-                #     self.logger.info(f"Targeting QR point of shelf {best_shelf_index}.")
-                #     self.robot_state = self.RobotState.NAVIGATING_TO_QR
-                #     target_coords = target_shelf.qr_coords
-                # else:
-                #     # If we have the QR, go to the object scan point
-                #     self.logger.info(f"Targeting Object point of shelf {best_shelf_index}.")
-                #     self.robot_state = self.RobotState.NAVIGATING_TO_OBJECTS
-                #     target_coords = target_shelf.obj_scan_coords
-                
-                # # 3. Send the command
-                # self.send_goal_to_shelf(target_coords, target_shelf.com, map_info)
-            else:
-                self.robot_state = self.RobotState.EXPLORING
-
-        # --- STATE: EXPLORING ---
-        elif self.robot_state == self.RobotState.EXPLORING:
-            self.logger.info("State: EXPLORING - Searching for a new frontier...")
-            
-            self.explore(img, map_array, map_info)
-            self.robot_state = self.RobotState.DECIDE_NEXT_TARGET
 
 
     def global_map_callback(self, message):
@@ -777,11 +739,80 @@ class WarehouseExplore(Node):
         Returns:
             None
         """
+        # return
         self.global_map_curr = message
 
-        if not self.map_received:
-            self.map_received = True
-            self.robot_state = self.RobotState.FINDING_SHELVES # Trigger shelf finding once map is ready
+        if not self.goal_completed:
+            return
+        if self.qr_array[self.prev_no_qr-1] != '0':
+            self.qr_code_str = self.qr_array[self.prev_no_qr-1]
+            self.logger.info("new qr............")
+        self.logger.info(str(self.get_map_coord_from_world_coord(0,0,message.info)))
+
+        height, width = self.global_map_curr.info.height, self.global_map_curr.info.width
+        # self.logger.info(f'height: {height}')
+        # self.logger.info(f'width: {width}')
+        map_array = np.array(self.global_map_curr.data).reshape((height, width))
+        map_info = self.global_map_curr.info
+        # resolution, origin_x, origin_y = self._get_map_conversion_info(map_info)
+        # self.logger.info(f"res:{resolution}, ox: {origin_x}, oy: {origin_y}")
+
+        if euclidean(self.buggy_center,self.prev_pos)<0.1:
+            self.stop_count+=1
+        else:
+            self.stop_count=0
+            # if self.goal_completed:
+            self.distant_pre_pos= self.prev_pos
+        if self.stop_count>5:
+            # self.logger.info("stuck now moving to a new random location")
+            self.stop_count=0
+            goal = self.create_goal_from_world_coord(self.distant_pre_pos[0],self.distant_pre_pos[1])
+            self.send_goal_from_world_pose(goal)
+        self.logger.info(f"stop count -->{self.stop_count}")
+        self.prev_pos = self.buggy_center
+
+        img = np.array(self.global_map_curr.data).reshape((height, width))
+        img = img.astype(np.int16)
+        img[(img != 0)&(img != -1)] = 255
+        img[img == -1] = 127
+        
+        _, th = cv2.threshold(img.astype(np.uint8), 130, 255, cv2.THRESH_BINARY)
+        # self.logger.info(f"unique img element{np.unique(img)}")
+        # self.logger.info(f"unique element{np.unique(th)}")
+        th=cv2.flip(th,0)
+        img=cv2.flip(img,0)
+        # print(f"--- Overwriting '{self.filename}'... ---")
+        # try:
+            # Open the file in 'w' (write) mode.
+            # This will create the file if it doesn't exist,
+            # or completely overwrite it if it does.
+        #     with open(self.filename, 'w') as f:
+        #         for item in img.flatten():
+        #             # Convert each item to a string and add a newline
+        #             f.write(str(item) + '\n')
+        #     print(f"Successfully overwrite '{self.filename}'.")
+        # except IOError as e:
+        #     print(f"Error writing to file {self.filename}: {e}")
+
+       
+        # ct, _ = cv2.findContours(th, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+
+        shelf_index = self.find_shelves(img,th, height, width, map_info)
+        self.logger.info(f"shelf_index found: {shelf_index}")
+
+        if len(shelf_index) > 0:
+            self.explore_toggle = False
+        else:
+            self.explore_toggle = True  
+
+        self.logger.info(f"explore_toggle: {self.explore_toggle}")
+
+        if self.explore_toggle:
+            # self.logger.info("Exploring the warehouse...")
+            self.explore(img,map_array, map_info)
+        else:
+            # self.logger.info(f"Found shelves: {shelf_index}")
+            self.reach_shelves(shelf_index, map_info, map_array, img)
         
 
     def get_frontiers_for_space_exploration(self, map_array):
@@ -830,10 +861,13 @@ class WarehouseExplore(Node):
 
                     for ny, nx in neighbors_cardinal:
                         if map_array[ny, nx] == 0:  # Free space.
+                            for py, px in neighbors_complete:
+                                if map_array[py, px] == -1:
+                                    free_space += 1
                             frontiers.append((ny, nx))
                             break
 
-        return frontiers
+        return frontiers, free_space
 
 
 
@@ -897,7 +931,7 @@ class WarehouseExplore(Node):
             msg = Joy()
             msg.buttons = [0, 1, 0, 0, 0, 0, 0, 1]
             msg.axes = [0.0, 0.0, 0.0, 0.0]
-            # self.publisher_joy.publish(msg)
+            self.publisher_joy.publish(msg)
 
     def behavior_tree_log_callback(self, message):
         """Alternative method for checking goal status.
