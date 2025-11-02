@@ -5,15 +5,16 @@ names:
 - cup
 - horse
 - potted plant
+- tedd7
 - teddy bear
 - zebra
-nc: 8
+nc: 9
 roboflow:
   license: CC BY 4.0
-  project: object-2.0
-  url: https://universe.roboflow.com/psg-ucxyu/object-2.0/dataset/6
-  version: 6
+  project: object-finale-kh8eh
+  url: https://universe.roboflow.com/psg-ucxyu/object-finale-kh8eh/dataset/5
+  version: 5
   workspace: psg-ucxyu
 test: ../test/images
-train: Object-2.0-6/train/images
-val: Object-2.0-6/valid/images
+train: Object-Finale-5/train/images
+val: Object-Finale-5/valid/images
