@@ -12,9 +12,9 @@ nc: 9
 roboflow:
   license: CC BY 4.0
   project: object-finale-kh8eh
-  url: https://universe.roboflow.com/psg-ucxyu/object-finale-kh8eh/dataset/5
-  version: 5
+  url: https://universe.roboflow.com/psg-ucxyu/object-finale-kh8eh/dataset/9
+  version: 9
   workspace: psg-ucxyu
 test: ../test/images
-train: Object-Finale-5/train/images
-val: Object-Finale-5/valid/images
+train: Object-Finale-9/train/images
+val: Object-Finale-9/valid/images
