@@ -265,7 +265,7 @@ class ObjectRecognizer(Node):
 		startTime = time.time()
 		self.interpreter.invoke()
 		delta = time.time() - startTime
-		#print("inference time:", '%.1f' % (delta * 1000), "ms")
+		print("inference time:", '%.1f' % (delta * 1000), "ms")
 		y = []
 		for output in self.output_details:
 			x = self.interpreter.get_tensor(output["index"])
