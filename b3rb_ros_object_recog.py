@@ -197,12 +197,12 @@ class ObjectRecognizer(Node):
 			self.label_names = yaml.load(f, Loader=yaml.FullLoader)['names']
 
 		ext_delegate_ops = {}
-		# Uncomment and replace for running on NavQPlus NPU (On-board neural processing unit).
-		# ext_delegate = [tflite.load_delegate("/usr/lib/libvx_delegate.so", ext_delegate_ops)]
+		#Uncomment and replace for running on NavQPlus NPU (On-board neural processing unit).
+		ext_delegate = [tflite.load_delegate("/usr/lib/libvx_delegate.so", ext_delegate_ops)]
 
-		# self.interpreter = tflite.Interpreter(model_path=resource_path_yolo,
-		# 				      experimental_delegates=ext_delegate)
-		self.interpreter = tflite.Interpreter(model_path=resource_path_yolo)
+		self.interpreter = tflite.Interpreter(model_path=resource_path_yolo,
+		 				      experimental_delegates=ext_delegate)
+		# self.interpreter = tflite.Interpreter(model_path=resource_path_yolo)
 
 		self.interpreter.allocate_tensors()
 
@@ -266,6 +266,7 @@ class ObjectRecognizer(Node):
 		self.interpreter.invoke()
 		delta = time.time() - startTime
 		print("inference time:", '%.1f' % (delta * 1000), "ms")
+		self.logger.info(f"Inference time: {delta * 1000:.1f} ms")
 		y = []
 		for output in self.output_details:
 			x = self.interpreter.get_tensor(output["index"])
