@@ -55,7 +55,7 @@ def xywh2xyxy(x):
 
 def non_max_suppression(
 	prediction,
-	conf_thres=0.25,
+	conf_thres=0.70,
 	iou_thres=0.45,
 	classes=None,
 	agnostic=False,
@@ -198,11 +198,11 @@ class ObjectRecognizer(Node):
 
 		ext_delegate_ops = {}
 		#Uncomment and replace for running on NavQPlus NPU (On-board neural processing unit).
-		ext_delegate = [tflite.load_delegate("/usr/lib/libvx_delegate.so", ext_delegate_ops)]
+		#ext_delegate = [tflite.load_delegate("/usr/lib/libvx_delegate.so", ext_delegate_ops)]
 
-		self.interpreter = tflite.Interpreter(model_path=resource_path_yolo,
-		 				      experimental_delegates=ext_delegate)
-		# self.interpreter = tflite.Interpreter(model_path=resource_path_yolo)
+		#self.interpreter = tflite.Interpreter(model_path=resource_path_yolo,
+		# 				      experimental_delegates=ext_delegate)
+		self.interpreter = tflite.Interpreter(model_path=resource_path_yolo)
 
 		self.interpreter.allocate_tensors()
 
@@ -265,7 +265,7 @@ class ObjectRecognizer(Node):
 		startTime = time.time()
 		self.interpreter.invoke()
 		delta = time.time() - startTime
-		print("inference time:", '%.1f' % (delta * 1000), "ms")
+		#print("inference time:", '%.1f' % (delta * 1000), "ms")
 		
 		y = []
 		for output in self.output_details:
@@ -285,7 +285,7 @@ class ObjectRecognizer(Node):
 			pred = torch.tensor(pred)
 
 			max_det = 1000
-			conf_thres = 0.25
+			conf_thres = 0.70
 			pred = non_max_suppression(pred, conf_thres, False, max_det=max_det)
 
 			for i, det in enumerate(pred):
